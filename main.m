@@ -4,10 +4,10 @@ norm = norm * (-1);
 hold on
 
 % Построение траектории
-[trajectory, point_list, pass_over] = BoundaryBox_v2.boundary_box(T, x, y, z, norm);
+[trajectory, point_list, pass_over] = BoundaryBox.boundary_box(T, x, y, z, norm);
 
 % Подход инструмента
-[tool_trajectory, tool_point_list] = BoundaryBox_v2.tool_feed(trajectory, point_list, pass_over, 5);
+[tool_trajectory, tool_point_list] = BoundaryBox.tool_feed(trajectory, point_list, pass_over, 5);
 plot3(tool_trajectory(1:end, 1), tool_trajectory(1:end, 2), tool_trajectory(1:end, 3));
 
 dstep = zeros(1, length(trajectory) - 1);
