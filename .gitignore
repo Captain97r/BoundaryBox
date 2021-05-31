@@ -1,0 +1,7 @@
+$ cat .gitignore
+
+/Notkin's trial
+/old
+/slprj
+
+*.asv
