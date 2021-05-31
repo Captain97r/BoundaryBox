@@ -208,7 +208,12 @@ classdef mathHelper
         
         function sq = triangle_square(a, b, c)
             p=(a+b+c)/2;
-            sq = sqrt(p*(p-a)*(p-b)*(p-c));
+            sq_squared = p *(p-a)*(p-b)*(p-c);
+            if (sq_squared < 0)
+                sq = 0;
+            else
+                sq = sqrt(sq_squared);
+            end
         end
         
     end
