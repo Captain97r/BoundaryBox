@@ -12,14 +12,15 @@ classdef BoundaryBox
         %   z - an array of the stored z-coordinates of the triangles;
         %
         % Return values:
-        %   trajectory  - array containing the chain of points which represents
-        %                 trajectory of the actuator (required output of the algo)
-        %   point_list  - object which represents trajectory of the actuator with
-        %                 some additional information about points (auxiliary output 
-        %                 for some further operations) 
-        %   pass_over   - array which contains the lengths of each pass of the
-        %                 trajectory
-        function [trajectory, point_list, pass_over] = boundary_box(T, x, y, z, norm)
+        %   trajectory       - array containing the chain of points which represents
+        %                      trajectory of the actuator (required output of the algo)
+        %   point_list       - object which represents trajectory of the actuator with
+        %                      some additional information about points (auxiliary output 
+        %                      for some further operations) 
+        %   pass_over        - array which contains the lengths of each pass of the
+        %                      trajectory
+        %   expand_distance  - distance from surface to actuator
+        function [trajectory, point_list, pass_over] = boundary_box(T, x, y, z, norm, expand_distance)
         tic
         
         %% Declaration and definition of variables
@@ -68,14 +69,19 @@ classdef BoundaryBox
             sec_plane = 2;% mathHelper.get_nearest_othogonal_plane([0 0 0]);
             plane_equation(sec_plane) = 2;
 
-            min_val(sec_plane) = min_val(sec_plane) +10;
+            %min_val(sec_plane) = min_val(sec_plane) + 10;
             
+            iteration_count = 1;
             % Now we create path based on the cutting plane and list of
             % triangles making up the original plane
             
             % TODO: we dont't automatically select the step of passes as
             % well as boundaries determination
-            for slice = min_val(sec_plane):3:max_val(sec_plane)
+            for slice = min_val(sec_plane) + 1:5:max_val(sec_plane) - 1
+                
+                BoundaryBox.progress_bar(round((min_val(sec_plane) - max_val(sec_plane)) / 10), iteration_count);
+                iteration_count = iteration_count + 1;
+                
                 plane_equation(4) = -slice; 
                 p = mathHelper.get_points(e, x, y, z, plane_equation);
                 % Gets the sequence of points which form a continuous chain
@@ -133,36 +139,36 @@ classdef BoundaryBox
                 
                 % Moves points along normals to define the path of the
                 % actuator (seems like redundant)
-                [exp_pass, point_list_exp] = BoundaryBox.expand_trajectory(step_pass, point_list_step, norm, 5);
+                [exp_pass, point_list_exp] = BoundaryBox.expand_trajectory(step_pass, point_list_step, norm, expand_distance);
                 
                 % Smoothes normals to fix sudden moves of the actuator
                 [filtered_norm] = BoundaryBox.norm_filter(exp_pass, step_pass);
                 
                 % Moves points along smoothed normals to define the path of 
                 % the actuator
-                [filtered_pass] = BoundaryBox.expand_trajectory_by_norm(step_pass, filtered_norm, 5); 
+                [filtered_pass] = BoundaryBox.expand_trajectory_by_norm(step_pass, filtered_norm, expand_distance); 
                 
                 
-                % Drawing routine
-                plot3(step_pass(1:end, 1), step_pass(1:end, 2), step_pass(1:end, 3));
-                hold on
-                plot3(filtered_pass(1:end, 1), filtered_pass(1:end, 2), filtered_pass(1:end, 3));
-                hold on
-                prev_angle = -1000;
-                prev_norm = filtered_norm(1, :);
-                for i=1:length(filtered_pass)
-                     angle = mathHelper.get_angle(prev_norm, filtered_norm(i, :));
-                     axis equal
-                    if abs(angle - prev_angle) < 10
-                        continue;
-                    end
-                    
-                    segment = [step_pass(i, :); mathHelper.point_shift_vec(step_pass(i, :), filtered_norm(i, :), 5)]; 
-                    plot3(segment(1:end, 1), segment(1:end, 2), segment(1:end, 3));
-                    hold on
-                    prev_angle = angle;
-                    prev_norm = filtered_norm(i, :);
-                end
+                % Drawing normals routine
+%                 plot3(step_pass(1:end, 1), step_pass(1:end, 2), step_pass(1:end, 3));
+%                 hold on
+%                 plot3(filtered_pass(1:end, 1), filtered_pass(1:end, 2), filtered_pass(1:end, 3));
+%                 hold on
+%                 prev_angle = -1000;
+%                 prev_norm = filtered_norm(1, :);
+%                 for i=1:length(filtered_pass)
+%                      angle = mathHelper.get_angle(prev_norm, filtered_norm(i, :));
+%                      axis equal
+%                     if abs(angle - prev_angle) < 10
+%                         continue;
+%                     end
+%                     
+%                     segment = [step_pass(i, :); mathHelper.point_shift_vec(step_pass(i, :), filtered_norm(i, :), 5)]; 
+%                     plot3(segment(1:end, 1), segment(1:end, 2), segment(1:end, 3));
+%                     hold on
+%                     prev_angle = angle;
+%                     prev_norm = filtered_norm(i, :);
+%                 end
                 
                 
                 % Reverting every second pass
@@ -803,6 +809,32 @@ classdef BoundaryBox
                 
             end
             
+        end
+        
+        function progress_bar(total, count)
+            persistent last_count;
+
+            percentage = round((count / total) * 1000) / 10;
+            last_percentage = round((last_count / total) * 1000) / 10;
+            if (percentage ~= last_percentage)
+                clc
+                fprintf("%.1f%% completed\r", percentage);
+                fprintf("[");
+
+                total_sectors = 20;
+                fill_sectors = floor(percentage / (100 / total_sectors));
+                for i = 1:fill_sectors
+                    fprintf("=");
+                end
+                if (fill_sectors < 20)
+                    fprintf(">");
+                end
+                for i = fill_sectors+1:total_sectors-1
+                    fprintf(" ");
+                end
+                fprintf("]\r");
+            end
+            last_count = count;
         end
     end
 end
