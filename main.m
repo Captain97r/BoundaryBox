@@ -4,7 +4,7 @@ norm = norm * (-1);
 hold on
 
 % Построение траектории
-[trajectory, point_list, pass_over] = BoundaryBox.boundary_box(T, x, y, z, norm, 0.1, 5);
+[trajectory, point_list, pass_over] = BoundaryBox.boundary_box(T, x, y, z, norm, 0.1, 0.5, 2);
 
 % Подход инструмента
 [tool_trajectory, tool_point_list] = BoundaryBox.tool_feed(trajectory, point_list, pass_over, 5);

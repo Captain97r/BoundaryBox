@@ -21,7 +21,12 @@ classdef BoundaryBox
         %                      trajectory
         %   expand_distance  - distance from surface to actuator
         %   tool_step        - distance between actuator passes
-        function [trajectory, point_list, pass_over] = boundary_box(T, x, y, z, norm, expand_distance, tool_step)
+        %   secant_plane     - number which represents orientation of
+        %                      secant plane:
+        %                           1: 0xy plane 
+        %                           2: 0xz plane
+        %                           3: 0yz plane
+        function [trajectory, point_list, pass_over] = boundary_box(T, x, y, z, norm, expand_distance, tool_step, secant_plane)
         tic
         
         %% Declaration and definition of variables
@@ -66,22 +71,15 @@ classdef BoundaryBox
 
             plane_equation = [0 0 0 0]; % [A B C D] - coefficients in equation of the form of Ax+By+Cz+D=0
 
-            % TODO: we still don't automatically select the plane to cut with
-            sec_plane = 2;% mathHelper.get_nearest_othogonal_plane([0 0 0]);
-            plane_equation(sec_plane) = 2;
-
-            %min_val(sec_plane) = min_val(sec_plane) + 10;
+            plane_equation(secant_plane) = 1;
             
-            iteration_count = 1;
             % Now we create path based on the cutting plane and list of
             % triangles making up the original plane
             
             % TODO: we dont't automatically select the step of passes as
             % well as boundaries determination
-            for slice = min_val(sec_plane) + 1:tool_step:max_val(sec_plane) - 1
+            for slice = min_val(secant_plane) + 0.1:tool_step:max_val(secant_plane) - 0.1
                 
-                BoundaryBox.progress_bar(round((min_val(sec_plane) - max_val(sec_plane)) / 10), iteration_count);
-                iteration_count = iteration_count + 1;
                 
                 plane_equation(4) = -slice; 
                 p = mathHelper.get_points(e, x, y, z, plane_equation);
