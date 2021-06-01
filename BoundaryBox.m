@@ -20,7 +20,8 @@ classdef BoundaryBox
         %   pass_over        - array which contains the lengths of each pass of the
         %                      trajectory
         %   expand_distance  - distance from surface to actuator
-        function [trajectory, point_list, pass_over] = boundary_box(T, x, y, z, norm, expand_distance)
+        %   tool_step        - distance between actuator passes
+        function [trajectory, point_list, pass_over] = boundary_box(T, x, y, z, norm, expand_distance, tool_step)
         tic
         
         %% Declaration and definition of variables
@@ -77,7 +78,7 @@ classdef BoundaryBox
             
             % TODO: we dont't automatically select the step of passes as
             % well as boundaries determination
-            for slice = min_val(sec_plane) + 1:5:max_val(sec_plane) - 1
+            for slice = min_val(sec_plane) + 1:tool_step:max_val(sec_plane) - 1
                 
                 BoundaryBox.progress_bar(round((min_val(sec_plane) - max_val(sec_plane)) / 10), iteration_count);
                 iteration_count = iteration_count + 1;
