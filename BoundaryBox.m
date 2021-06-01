@@ -21,11 +21,8 @@ classdef BoundaryBox
         %                      trajectory
         %   expand_distance  - distance from surface to actuator
         %   tool_step        - distance between actuator passes
-        %   secant_plane     - number which represents orientation of
-        %                      secant plane:
-        %                           1: 0xy plane 
-        %                           2: 0xz plane
-        %                           3: 0yz plane
+        %   secant_plane     - array of the form [A B C D] representing coefficients  
+        %                      in plane equation of the form of Ax+By+Cz+D=0 
         function [trajectory, point_list, pass_over] = boundary_box(T, x, y, z, norm, expand_distance, tool_step, secant_plane)
         tic
         
@@ -69,16 +66,18 @@ classdef BoundaryBox
                 end
             end
 
-            plane_equation = [0 0 0 0]; % [A B C D] - coefficients in equation of the form of Ax+By+Cz+D=0
-
-            plane_equation(secant_plane) = 1;
+            plane_equation = secant_plane;
             
             % Now we create path based on the cutting plane and list of
             % triangles making up the original plane
             
-            % TODO: we dont't automatically select the step of passes as
-            % well as boundaries determination
-            for slice = min_val(secant_plane) + 0.1:tool_step:max_val(secant_plane) - 0.1
+            min_val = min_val(secant_plane(1:3) ~= 0);
+            max_val = max_val(secant_plane(1:3) ~= 0);
+            center = (max(max_val) + min(min_val)) / 2;
+            left_bound = center - (max(max_val) - min(min_val));
+            right_bound = center + (max(max_val) - min(min_val));
+            
+            for slice = left_bound:tool_step:right_bound
                 
                 
                 plane_equation(4) = -slice; 
@@ -171,7 +170,7 @@ classdef BoundaryBox
                 
                 
                 % Reverting every second pass
-                if (~isempty(trajectory))
+                if (~isempty(trajectory) && ~isempty(filtered_pass))
                     d1 = mathHelper.get_distance(trajectory(end, :), filtered_pass(1, :));
                     d2 = mathHelper.get_distance(trajectory(end, :), filtered_pass(end, :));
                     if (d1 > d2)
@@ -189,7 +188,10 @@ classdef BoundaryBox
                     point_list = [point_list, point_list_exp(i)];
                 end
                 
-                pass_over = [pass_over, length(trajectory)];
+                if (~isempty(filtered_pass))
+                    pass_over = [pass_over, length(trajectory)];
+                end
+                
                 v = zeros(1, length(filtered_pass) - 1);
                 a = zeros(1, length(filtered_pass) - 2);
                 for i = 1:length(filtered_pass) - 1
@@ -226,6 +228,11 @@ classdef BoundaryBox
         
             list_size = size(list);
             list_length = list_size(2);
+            
+            if (list_length == 0)
+                path_list = PointList;
+                return;
+            end
 
             endpoints = [];
 
@@ -342,6 +349,10 @@ classdef BoundaryBox
             trajectory = [];
             % Get expanded list of points
             list_size = size(point_list);
+            
+            if (list_size(2) == 0)
+                return;
+            end
             
             list_expanded(list_size(2)) = PointList();
             pts = point_list(1).points;
@@ -536,14 +547,18 @@ classdef BoundaryBox
                         continue;
                     end
                     
-                    if (i - floor(sizes(i) / 2) <= 0)
-                        m = mean(result(1:(i*2)-1, :));
-                    elseif (i + floor(sizes(i) / 2) > tr_len)
-                        m = mean(result(i-(tr_len-i):end, :));
-                    else
-                        m = mean(result(i-floor(sizes(i) / 2):i+floor(sizes(i) / 2), :));
+                    try
+                        if (i - floor(sizes(i) / 2) <= 0)
+                            m = mean(result(1:(i*2)-1, :));
+                        elseif (i + floor(sizes(i) / 2) > tr_len)
+                            m = mean(result(i-(tr_len-i):end, :));
+                        else
+                            m = mean(result(i-floor(sizes(i) / 2):i+floor(sizes(i) / 2), :));
+                        end
+                        result(i, :) = m;
+                    catch
+                        warning("Index exceeds array bounds, i: " + i);
                     end
-                    result(i, :) = m;
                 end
                 
                 is_ended = true;
