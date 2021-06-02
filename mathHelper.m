@@ -139,7 +139,7 @@ classdef mathHelper
         end
         
         function l = get_distance(a, b)
-            l = sqrt((a(1) - b(1))^2 + (a(2) - b(2))^2 + (a(3) - b(3))^2);
+            l = sqrt((a(:, 1) - b(:, 1)).^2 + (a(:, 2) - b(:, 2)).^2 + (a(:, 3) - b(:, 3)).^2);
         end
         
         function S = get_square(x, y, z)
