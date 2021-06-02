@@ -24,8 +24,6 @@ classdef BoundaryBox
         %   secant_plane     - array of the form [A B C D] representing coefficients  
         %                      in plane equation of the form of Ax+By+Cz+D=0 
         function [trajectory, point_list, pass_over] = boundary_box(T, x, y, z, norm, expand_distance, tool_step, secant_plane)
-        tic
-        
         %% Declaration and definition of variables
         pass_over = [];
         point_list = [];
@@ -71,7 +69,7 @@ classdef BoundaryBox
             min_val = min_val(secant_plane(1:3) ~= 0);
             max_val = max_val(secant_plane(1:3) ~= 0);
             center = (max(max_val) + min(min_val)) / 2;
-            left_bound = center - (max(max_val) - min(min_val));
+            left_bound = center - (max(max_val) - min(min_val)) + (abs(max(max_val)) + abs(min(min_val)) * 0.01);
             right_bound = center + (max(max_val) - min(min_val));
             
             % Now we create path based on the cutting plane and list of
@@ -220,7 +218,47 @@ classdef BoundaryBox
             %plot3(src(1:end, 1), src(1:end, 2), src(1:end, 3));
             %axis equal
         end   
-        toc
+        end
+        
+        function [shortest_path, point_list, pass_over] = find_shortest_path(T, x, y, z, norm, expand_distance, tool_step)
+            shortest_path = [];
+            shortest_length = inf;
+            
+            %0z axis rotation
+            for i = 0:pi/18:2*pi
+                secant_plane = [cos(i) sin(i) 0 0];
+                [trajectory, point_list, pass_over] = BoundaryBox.boundary_box(T, x, y, z, norm, expand_distance, tool_step, secant_plane);
+                path_length = sum(mathHelper.get_distance(trajectory(2:end, :), trajectory(1:end-1, :)));
+                if (path_length < shortest_length)
+                    shortest_path = [];
+                    shortest_path = trajectory;
+                    shortest_length = path_length;
+                end
+            end
+            
+            %0y axis rotation
+            for i = 0:pi/18:2*pi
+                secant_plane = [cos(i) 0 sin(i) 0];
+                [trajectory, point_list, pass_over] = BoundaryBox.boundary_box(T, x, y, z, norm, expand_distance, tool_step, secant_plane);
+                path_length = sum(mathHelper.get_distance(trajectory(2:end, :), trajectory(1:end-1, :)));
+                if (path_length < shortest_length)
+                    shortest_path = [];
+                    shortest_path = trajectory;
+                    shortest_length = path_length;
+                end
+            end
+            
+            %0x axis rotation
+            for i = 0:pi/18:2*pi
+                secant_plane = [0 cos(i) sin(i) 0];
+                [trajectory, point_list, pass_over] = BoundaryBox.boundary_box(T, x, y, z, norm, expand_distance, tool_step, secant_plane);
+                path_length = sum(mathHelper.get_distance(trajectory(2:end, :), trajectory(1:end-1, :)));
+                if (path_length < shortest_length)
+                    shortest_path = [];
+                    shortest_path = trajectory;
+                    shortest_length = path_length;
+                end
+            end
         end
         
         function path_list = path_finding(list, start_point)
@@ -409,10 +447,15 @@ classdef BoundaryBox
                 end
             end
             
+            
             if (~isempty(list_expanded(end).triangles))
                 tri = list_expanded(end).triangles(1);
             else
-                tri = list_expanded(end).inside_triangle(1);
+                try 
+                    tri = list_expanded(end).inside_triangle(1);
+                catch
+                    warning();
+                end
             end
 %             if (norm(tri, 3) < 0)
 %                 norm(tri, :) = norm(tri, :) * (-1);
@@ -427,7 +470,8 @@ classdef BoundaryBox
         
         function [result] = expand_trajectory_by_norm(trajectory, norm, dist)
             result = zeros(length(trajectory), 3);
-            for i = 1:length(trajectory)
+            trajectory_size = size(trajectory);
+            for i = 1:trajectory_size(1)
                 result(i, :) = mathHelper.point_shift_vec(trajectory(i, :), norm(i, :), dist); 
             end
         end
@@ -498,7 +542,8 @@ classdef BoundaryBox
         function [result] = norm_filter(trajectory, source_trajectory)
             
             result = trajectory(1:end, :) - source_trajectory(1:end, :);
-            for i = 1:length(trajectory)
+            trajectory_size = size(trajectory);
+            for i = 1:trajectory_size(1)
                 norm = sqrt(result(i, 1)*result(i, 1) + result(i, 2)*result(i, 2) + result(i, 3)*result(i, 3));
                 result(i, 1) = result(i, 1) / norm;
                 result(i, 2) = result(i, 2) / norm;
