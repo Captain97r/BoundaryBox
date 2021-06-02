@@ -8,8 +8,11 @@ hold on
 
 % Подход инструмента
 [tool_trajectory, tool_point_list] = BoundaryBox.tool_feed(trajectory, point_list, pass_over, 1);
+
+% Отображение результата
 plot3(tool_trajectory(1:end, 1), tool_trajectory(1:end, 2), tool_trajectory(1:end, 3));
 
+% Нахождение скоростей и ускорений инструмента
 dstep = zeros(1, length(trajectory) - 1);
 dout = zeros(1, length(trajectory) - 1);
 v = zeros(1, length(trajectory) - 1);
@@ -35,6 +38,4 @@ figure(3)
 plot(a)
 xlabel('Время, c')
 ylabel('Ускорение, м/с^2');
-
-%plot(trajectory(1:end, 1), trajectory(1:end, 3));
 

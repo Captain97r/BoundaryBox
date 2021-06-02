@@ -1,5 +1,5 @@
 classdef BoundaryBox
-    %STLCONVERTER Contains functions for trajectory generation
+    %BoundaryBox Contains functions for trajectory generation
     
     methods(Static)
         %% Trajectory generator function
@@ -41,7 +41,7 @@ classdef BoundaryBox
             Tplane = T;
             e = mathHelper.get_edges(Tplane);
 
-            % Tries to define what edge we should start from
+            % Tries to define what coordinates we should start from
             min_val = ones(1, 3) * inf;
             max_val = ones(1, 3) * -inf;
             for a = 1:length(e) * 2
@@ -68,15 +68,14 @@ classdef BoundaryBox
 
             plane_equation = secant_plane;
             
-            % Now we create path based on the cutting plane and list of
-            % triangles making up the original plane
-            
             min_val = min_val(secant_plane(1:3) ~= 0);
             max_val = max_val(secant_plane(1:3) ~= 0);
             center = (max(max_val) + min(min_val)) / 2;
             left_bound = center - (max(max_val) - min(min_val));
             right_bound = center + (max(max_val) - min(min_val));
             
+            % Now we create path based on the cutting plane and list of
+            % triangles making up the original plane
             for slice = left_bound:tool_step:right_bound
                 
                 
@@ -120,7 +119,7 @@ classdef BoundaryBox
                     start_point = min_ptr;
                 end
                 
-                % Runs algo which building path on the surface using a list
+                % Runs algo which builds the path on the surface using a list
                 % containing our chain of points
                 list = BoundaryBox.path_finding(list, -1);
                 
@@ -136,7 +135,7 @@ classdef BoundaryBox
                 [step_pass, point_list_step] = BoundaryBox.get_trajectory_with_constant_step(current_pass, list, T, x, y, z);
                 
                 % Moves points along normals to define the path of the
-                % actuator (seems like redundant)
+                % actuator 
                 [exp_pass, point_list_exp] = BoundaryBox.expand_trajectory(step_pass, point_list_step, norm, expand_distance);
                 
                 % Smoothes normals to fix sudden moves of the actuator
@@ -236,7 +235,7 @@ classdef BoundaryBox
 
             endpoints = [];
 
-            % Create list of points, belonging to only one triangle
+            % Creates list of points, belonging to only one triangle
             path_list(list_length) = PointList;
             for i = 1:list_length
                 if (length(list(i).triangles) == 1)
@@ -258,7 +257,7 @@ classdef BoundaryBox
                     end
                 end
             
-                % And place it at the beginning of the array
+                % And places it at the beginning of the array
                 if (endpoints(endp_index) ~= 1)
                     temp = list(endpoints(endp_index));
                     list(endpoints(endp_index)) = list(1);
@@ -276,7 +275,7 @@ classdef BoundaryBox
                     end
                 end
             
-                % And place it at the beginning of the array
+                % The same
                 if (endpoints(index) ~= 1)
                     temp = list(endpoints(index));
                     list(endpoints(index)) = list(1);
@@ -445,14 +444,6 @@ classdef BoundaryBox
             sizes = ones(tr_len, 1) * window_size;
             
             while ~is_ended
-    %             distance_map = zeros(tr_len, 1);
-    %             for i = 2:tr_len-1
-    %                 total_len = mathHelper.get_distance(trajectory(i-1, :), trajectory(i, :)) + ...
-    %                     + mathHelper.get_distance(trajectory(i, :), trajectory(i+1, :));
-    % 
-    %                 distance = mathHelper.get_distance(trajectory(i-1, :), trajectory(i+1, :));
-    %                 distance_map(i) = total_len / distance;
-    %             end
 
                 for i = 2:tr_len-1
                     if (sizes(i) == 1)
@@ -500,17 +491,8 @@ classdef BoundaryBox
                         end
                     end
                 end
-                
-                %plot3(result(1:end, 1), result(1:end, 2), result(1:end, 3));
             end
                 
-            
-            
-%             window_size = 49;
-%             for i = 1:length(trajectory) - window_size
-%                 m = mean(trajectory(i:i+window_size-1, :));
-%                 result(i + floor(window_size / 2), :) = m;
-%             end
         end
         
         function [result] = norm_filter(trajectory, source_trajectory)
@@ -533,14 +515,6 @@ classdef BoundaryBox
             sizes = ones(tr_len, 1) * window_size;  
 
             while ~is_ended
-    %             distance_map = zeros(tr_len, 1);
-    %             for i = 2:tr_len-1
-    %                 total_len = mathHelper.get_distance(trajectory(i-1, :), trajectory(i, :)) + ...
-    %                     + mathHelper.get_distance(trajectory(i, :), trajectory(i+1, :));
-    % 
-    %                 distance = mathHelper.get_distance(trajectory(i-1, :), trajectory(i+1, :));
-    %                 distance_map(i) = total_len / distance;
-    %             end
 
                 for i = 2:tr_len-1
                     if (sizes(i) == 1)
@@ -767,62 +741,6 @@ classdef BoundaryBox
                     i = i + 1;
                 end
             end
-        end
-        
-        function [norm] = construct_new_norm(step, filtered, len)
-            tr_size = size(step);
-            tr_len = tr_size(1);
-            norm = zeros(tr_len, 3, 2);
-            
-            for i = 1:tr_len
-                norm(i, :, 1) = filtered(i, :);
-                norm(i, :, 2) = mathHelper.point_shift(filtered(i, :), step(i, :), len);
-            end
-        end
-        
-        function acc = check_kinematics(trajectory)
-            tr_size = size(trajectory);
-            tr_length = tr_size(1);
-            acc = zeros(1, tr_length - 2);
-            dist = zeros(1, tr_length - 1);
-            
-            for i = 1:tr_length - 1
-                x = [trajectory(i, 1), trajectory(i + 1, 1)];
-                y = [trajectory(i, 2), trajectory(i + 1, 2)];
-                z = [trajectory(i, 3), trajectory(i + 1, 3)];
-                
-                dist(i) = mathHelper.get_distance(trajectory(i, :), trajectory(i + 1, :));
-                %p = polyfit(x,z,2);
-                %acc(i) = p(1);
-            end
-            
-            for i = 1:tr_length - 2
-                x = [trajectory(i, 1), trajectory(i + 1, 1), trajectory(i + 2, 1)];
-                y = [trajectory(i, 2), trajectory(i + 1, 2), trajectory(i + 2, 2)];
-                z = [trajectory(i, 3), trajectory(i + 1, 3), trajectory(i + 2, 3)];
-                
-                t = linspace(0, dist(i) + dist(i+1), round((dist(i) + dist(i+1)) * 100000));
-                if (length(t) < 3)
-                    continue;
-                end
-                ptr = find(t <= dist(i));
-                x_t = [linspace(x(1), x(2), ptr(end)) linspace(x(2), x(3), length(t) - (ptr(end)-1))];
-                x_t(ptr(end)) = [];
-                
-                p = polyfit(t,x_t,2);
-                acc(i) = p(1);
-                
-                f1 = polyval(p,t);
-
-                plot([0 dist(i) dist(i)+dist(i+1)],x,'o')
-                hold on
-                plot(t,x_t)
-                plot(t, f1,'r--')
-                legend('x','x_t','f_t')
-                hold off
-                
-            end
-            
         end
         
         function progress_bar(total, count)
