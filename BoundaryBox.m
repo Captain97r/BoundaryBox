@@ -32,11 +32,15 @@ classdef BoundaryBox
         src = [];
         s = size(T);
         
-        % Selects the method of path finding
+        % Determines the method of path finding
         %   1: based on chain of points on edges of triangles
         %   2: simple finds the nearest point
-        method = 2;
+        path_finding_method = 2;
         
+        % Determines the method of slice construction
+        %   1: stock
+        %   2: equal distances between slices
+        slice_construction_method = 2;
         
         %% Main loop  
         % Since we don't divide surface it's redundant but 
@@ -78,183 +82,234 @@ classdef BoundaryBox
             left_bound = center - (max(max_val) - min(min_val)) + ((max(max_val) - min(min_val)) * 0.01);
             right_bound = center + (max(max_val) - min(min_val));
             
+            first_slice = 1;
             % Now we create path based on the cutting plane and list of
             % triangles making up the original plane
-            for slice = left_bound:tool_step:right_bound
+            if (slice_construction_method == 1)
+                for slice = left_bound:tool_step:right_bound
                 
-                plane_equation(4) = -slice; 
+                    plane_equation(4) = -slice; 
 
-                % Gets the sequence of points which form a continuous chain
-                % in terms of positions of triangles in our original plane
-                [p, list] = mathHelper.get_bounded_points(e, x, y, z, plane_equation, Tplane);
+                    % Gets the sequence of points which form a continuous chain
+                    % in terms of positions of triangles in our original plane
+                    [p, list] = mathHelper.get_bounded_points(e, x, y, z, plane_equation, Tplane);
 
-                % Unique function implementation here
-                % Required to avoid double-precision inaccuracy, deletes
-                % repeating points
-                list_size = size(list);
-                list_length = list_size(2);
-                ptr = 1;
-                while (ptr < list_length)
-                    for i = list_length:-1:ptr + 1
-                        if (ceil(list(ptr).points * 100000) == ceil(list(i).points * 100000))
-                            list(i)= [];
+                    % Unique function implementation here
+                    % Required to avoid double-precision inaccuracy, deletes
+                    % repeating points
+                    [list, list_length] = mathHelper.unique(list);
+
+                    % Begins to build trajectory array
+                    % First, defines the point we gonna start our pass from
+                    % start_point = mathHelper.get_start_point(trajectory, list_length);
+
+                    % Runs algo which builds the path on the surface using a list
+                    % containing our chain of points
+
+                    if (path_finding_method == 1)
+                        list = BoundaryBox.path_finding(list, -1);
+                    elseif (path_finding_method == 2)
+
+                        test = zeros(list_length, 3);
+                        for i = 1:list_length
+                            test(i, :) = list(i).points - list(1).points;
                         end
-                    end
-                    list_size = size(list);
-                    list_length = list_size(2);
-                    ptr = ptr + 1;
-                end
 
-                % Begins to build trajectory array
-                % First, defines the point we gonna start our pass from
-                if (~isempty(trajectory))
-                    pivot = trajectory(end, :);
-                    min_dist = Inf;
-                    min_ptr = -1;
-                    for i = 1:list_length
-                        current_point = list(i).points;
-                        dist = mathHelper.get_distance(pivot, current_point);
-                        if (dist < min_dist)
-                            min_dist = dist;
-                            min_ptr = i;
+                        if ~isempty(find(sum(test) ~= 0))
+                            test = find(sum(test) ~= 0);
+                            test = test(1);
                         end
-                    end
-                    start_point = min_ptr;
-                end
+                        min_p = inf;
 
-                % Runs algo which builds the path on the surface using a list
-                % containing our chain of points
-                
-                if (method == 1)
-                    list = BoundaryBox.path_finding(list, -1);
-                elseif (method == 2)
-                    
-                    test = zeros(list_length, 3);
-                    for i = 1:list_length
-                        test(i, :) = list(i).points - list(1).points;
-                    end
-                    
-                    if ~isempty(find(sum(test) ~= 0))
-                        test = find(sum(test) ~= 0);
-                        test = test(1);
-                    end
-                    min_p = inf;
-                    
-                    index = -1;
-                    % Finds min point
-                    for i = 1:list_length
-                        if (sum(list(i).points(test) < min_p) > 0)
-                            min_p = list(i).points(test);
-                            index = i;
-                        end
-                    end
-                    if (index ~= -1)
-                        temp = list(1);
-                        list(1) = list(index);
-                        list(index) = temp;
-                    end
-                    
-                    % Sorts array
-                    for i = 1:list_length - 1
-                        min_distance = inf;
                         index = -1;
-                        for j = i+1:list_length
-                            distance = mathHelper.get_distance(list(i).points, list(j).points);
-                            if (distance < min_distance)
-                                min_distance = distance;
-                                index = j;
+                        % Finds min point
+                        for i = 1:list_length
+                            if (sum(list(i).points(test) < min_p) > 0)
+                                min_p = list(i).points(test);
+                                index = i;
                             end
                         end
-                        temp = list(index);
-                        list(index) = list(i + 1);
-                        list(i + 1) = temp;
+                        if (index ~= -1)
+                            temp = list(1);
+                            list(1) = list(index);
+                            list(index) = temp;
+                        end
+
+                        % Sorts array
+                        for i = 1:list_length - 1
+                            min_distance = inf;
+                            index = -1;
+                            for j = i+1:list_length
+                                distance = mathHelper.get_distance(list(i).points, list(j).points);
+                                if (distance < min_distance)
+                                    min_distance = distance;
+                                    index = j;
+                                end
+                            end
+                            temp = list(index);
+                            list(index) = list(i + 1);
+                            list(i + 1) = temp;
+                        end
                     end
-                end
 
-                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-                for i = 1:list_length
-                    current_pass = [current_pass; list(i).points];
-                end
-
-                % Creates additional points in resulting trajectory to 
-                % maintain a constant step between them
-                [step_pass, point_list_step] = BoundaryBox.get_trajectory_with_constant_step(current_pass, list, T, x, y, z);
-
-                % Moves points along normals to define the path of the
-                % actuator 
-                [exp_pass, point_list_exp] = BoundaryBox.expand_trajectory(step_pass, point_list_step, norm, expand_distance);
-
-                % Smoothes normals to fix sudden moves of the actuator
-                [filtered_norm] = BoundaryBox.norm_filter(exp_pass, step_pass);
-
-                % Moves points along smoothed normals to define the path of 
-                % the actuator
-                [filtered_pass] = BoundaryBox.expand_trajectory_by_norm(step_pass, filtered_norm, expand_distance); 
-
-
-                % Drawing normals routine
-%                 plot3(step_pass(1:end, 1), step_pass(1:end, 2), step_pass(1:end, 3));
-%                 hold on
-%                 plot3(filtered_pass(1:end, 1), filtered_pass(1:end, 2), filtered_pass(1:end, 3));
-%                 hold on
-%                 prev_angle = -1000;
-%                 prev_norm = filtered_norm(1, :);
-%                 for i=1:length(filtered_pass)
-%                      angle = mathHelper.get_angle(prev_norm, filtered_norm(i, :));
-%                      axis equal
-%                     if abs(angle - prev_angle) < 10
-%                         continue;
-%                     end
-%                     
-%                     segment = [step_pass(i, :); mathHelper.point_shift_vec(step_pass(i, :), filtered_norm(i, :), 5)]; 
-%                     plot3(segment(1:end, 1), segment(1:end, 2), segment(1:end, 3));
-%                     hold on
-%                     prev_angle = angle;
-%                     prev_norm = filtered_norm(i, :);
-%                 end
-
-
-                % Reverting every second pass
-                if (~isempty(trajectory) && ~isempty(filtered_pass))
-                    d1 = mathHelper.get_distance(trajectory(end, :), filtered_pass(1, :));
-                    d2 = mathHelper.get_distance(trajectory(end, :), filtered_pass(end, :));
-                    if (d1 > d2)
-                        filtered_pass = filtered_pass(end:-1:1, :);
-                        step_pass = step_pass(end:-1:1, :);
+                    for i = 1:list_length
+                        current_pass = [current_pass; list(i).points];
                     end
+
+                    % Creates additional points in resulting trajectory to 
+                    % maintain a constant step between them
+                    [step_pass, point_list_step] = BoundaryBox.get_trajectory_with_constant_step(current_pass, list, T, x, y, z);
+
+                    % Moves points along normals to define the path of the
+                    % actuator 
+                    [exp_pass, point_list_exp] = BoundaryBox.expand_trajectory(step_pass, point_list_step, norm, expand_distance);
+
+                    % Smoothes normals to fix sudden moves of the actuator
+                    [filtered_norm] = BoundaryBox.norm_filter(exp_pass, step_pass);
+
+                    % Moves points along smoothed normals to define the path of 
+                    % the actuator
+                    [filtered_pass] = BoundaryBox.expand_trajectory_by_norm(step_pass, filtered_norm, expand_distance); 
+
+
+                    % Drawing normals routine
+    %                 plot3(step_pass(1:end, 1), step_pass(1:end, 2), step_pass(1:end, 3));
+    %                 hold on
+    %                 plot3(filtered_pass(1:end, 1), filtered_pass(1:end, 2), filtered_pass(1:end, 3));
+    %                 hold on
+    %                 prev_angle = -1000;
+    %                 prev_norm = filtered_norm(1, :);
+    %                 for i=1:length(filtered_pass)
+    %                      angle = mathHelper.get_angle(prev_norm, filtered_norm(i, :));
+    %                      axis equal
+    %                     if abs(angle - prev_angle) < 10
+    %                         continue;
+    %                     end
+    %                     
+    %                     segment = [step_pass(i, :); mathHelper.point_shift_vec(step_pass(i, :), filtered_norm(i, :), 5)]; 
+    %                     plot3(segment(1:end, 1), segment(1:end, 2), segment(1:end, 3));
+    %                     hold on
+    %                     prev_angle = angle;
+    %                     prev_norm = filtered_norm(i, :);
+    %                 end
+
+
+                    % Reverting every second pass
+                    if (~isempty(trajectory) && ~isempty(filtered_pass))
+                        d1 = mathHelper.get_distance(trajectory(end, :), filtered_pass(1, :));
+                        d2 = mathHelper.get_distance(trajectory(end, :), filtered_pass(end, :));
+                        if (d1 > d2)
+                            filtered_pass = filtered_pass(end:-1:1, :);
+                            step_pass = step_pass(end:-1:1, :);
+                        end
+                    end
+
+
+                    % Oh what does code below means tell me pls
+                    src = [src; step_pass];
+                    trajectory = [trajectory; filtered_pass];
+
+                    for i = 1:length(point_list_exp)
+                        point_list = [point_list, point_list_exp(i)];
+                    end
+
+                    if (~isempty(filtered_pass))
+                        pass_over = [pass_over, length(trajectory)];
+                    end
+
+                    v = zeros(1, length(filtered_pass) - 1);
+                    a = zeros(1, length(filtered_pass) - 2);
+                    for i = 1:length(filtered_pass) - 1
+                        dout(i) = mathHelper.get_distance(filtered_pass(i, :), filtered_pass(i+1, :));
+                        v(i) = dout(i);
+                    end
+
+                    for i = 1:length(filtered_pass) - 2
+                        a(i) = v(i) - v(i+1);
+                    end
+
+
+                    list = [];
+                    current_pass = [];
+
+                    first_slice = 0;
                 end
-
-
-                % Oh what does code below means tell me pls
-                src = [src; step_pass];
-                trajectory = [trajectory; filtered_pass];
-
-                for i = 1:length(point_list_exp)
-                    point_list = [point_list, point_list_exp(i)];
-                end
-
-                if (~isempty(filtered_pass))
-                    pass_over = [pass_over, length(trajectory)];
-                end
-
-                v = zeros(1, length(filtered_pass) - 1);
-                a = zeros(1, length(filtered_pass) - 2);
-                for i = 1:length(filtered_pass) - 1
-                    dout(i) = mathHelper.get_distance(filtered_pass(i, :), filtered_pass(i+1, :));
-                    v(i) = dout(i);
-                end
-
-                for i = 1:length(filtered_pass) - 2
-                    a(i) = v(i) - v(i+1);
-                end
-
-
-                list = [];
-                current_pass = [];
+            elseif (slice_construction_method == 2)
                 
+                current_pass = [];
+                plane_equation(4) = -left_bound;
+                
+                while (isempty(current_pass))
 
+                        % Gets the sequence of points which form a continuous chain
+                        % in terms of positions of triangles in our original plane
+                        [p, list] = mathHelper.get_bounded_points(e, x, y, z, plane_equation, Tplane);
+
+                        % Unique function implementation here
+                        % Required to avoid double-precision inaccuracy, deletes
+                        % repeating points
+                        [list, list_length] = mathHelper.unique(list);
+
+                        % Begins to build trajectory array
+                        % First, defines the point we gonna start our pass from
+                        % start_point = mathHelper.get_start_point(trajectory, list_length);
+                        if (path_finding_method == 1)
+                            list = BoundaryBox.path_finding(list, -1);
+                        elseif (path_finding_method == 2)
+
+                            test = zeros(list_length, 3);
+                            for i = 1:list_length
+                                test(i, :) = list(i).points - list(1).points;
+                            end
+
+                            if ~isempty(find(sum(test) ~= 0))
+                                test = find(sum(test) ~= 0);
+                                test = test(1);
+                            end
+                            min_p = inf;
+
+                            index = -1;
+                            % Finds min point
+                            for i = 1:list_length
+                                if (sum(list(i).points(test) < min_p) > 0)
+                                    min_p = list(i).points(test);
+                                    index = i;
+                                end
+                            end
+                            if (index ~= -1)
+                                temp = list(1);
+                                list(1) = list(index);
+                                list(index) = temp;
+                            end
+
+                            % Sorts array
+                            for i = 1:list_length - 1
+                                min_distance = inf;
+                                index = -1;
+                                for j = i+1:list_length
+                                    distance = mathHelper.get_distance(list(i).points, list(j).points);
+                                    if (distance < min_distance)
+                                        min_distance = distance;
+                                        index = j;
+                                    end
+                                end
+                                temp = list(index);
+                                list(index) = list(i + 1);
+                                list(i + 1) = temp;
+                            end
+                        end
+                        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+                        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+                        for i = 1:list_length
+                            current_pass = [current_pass; list(i).points];
+                        end
+                        plane_equation(4) = plane_equation(4) - tool_step;
+                end
+                        next_slice = BoundaryBox.find_next_slice_on_distance(T, e, x, y, z, norm, plane_equation, current_pass, list, tool_step);
             end
             s = 0;  
             %plot3(trajectory(1:end, 1), trajectory(1:end, 2), trajectory(1:end, 3));
@@ -272,7 +327,12 @@ classdef BoundaryBox
                 secant_plane = [cos(i) sin(i) 0 0];
                 [trajectory, point_list, pass_over] = BoundaryBox.boundary_box(T, x, y, z, norm, expand_distance, tool_step, secant_plane);
                 path_length = sum(mathHelper.get_distance(trajectory(2:end, :), trajectory(1:end-1, :)));
-                if (path_length < shortest_length)
+                path_over_distance = inf;
+                if (length(passover) > 2)
+                    path_over_distance = mathHelper.get_distance(trajectory(pass_over(1), :), trajectory(pass_over(3), :)) / 2;
+                end
+                
+                if (path_length < shortest_length && path_over_distance < tool_step + 0.1 * tool_step)
                     shortest_path = [];
                     shortest_path = trajectory;
                     shortest_length = path_length;
@@ -421,6 +481,85 @@ classdef BoundaryBox
             path_list(i) = list(index);
             list(index) = [];
             is_started = 0;
+            end
+        end
+        
+        function next_slice = find_next_slice_on_distance(T, e, x, y, z, norm, current_sec_plane, current_slice, current_slice_list, distance)
+            % TODO
+            % 1. For each point find plane equation, perpendicular to current
+            % secant plane and passing through its normal
+            % 2. Calculate path length on surface which is equal to
+            % distance given, and find end point
+            
+            current_slice_size = size(current_slice);
+            current_slice_length = current_slice_size(1);
+            
+            next_slice = zeros(current_slice_length, 3);
+            
+            % Необходимо найти такую прямую, которая лежит в плоскости
+            % сечения, и при этом перпендикулярна 
+            % Не, надо просто найти уравнение плоскости, перпендикулярной
+            % двум плоскостям - секущей и текущему треугольничку
+            for i = 1:current_slice_length
+                p1 = current_slice(i, :);
+                
+                % Нахождение нормали текущего треугольника
+                if (length(current_slice_list(i).triangles) == 1)
+                    current_norm = norm(current_slice_list(i).triangles(1), :);
+                else
+                    current_norm = (norm(current_slice_list(i).triangles(1), :) + norm(current_slice_list(i).triangles(2), :)) ./ 2;
+                end
+                %p2 = mathHelper.point_shift_vec(p1, current_norm, 1);
+                
+                % Находим ортогональную плоскость
+                plane_norm = current_norm;
+                
+                ortogonal_plane = [current_norm(1), current_norm(2), current_norm(3), ...
+                    -(current_norm(1) * p1(1)) - (current_norm(2) * p1(2)) - (current_norm(3) * p1(3))];
+                
+                % Направляющий вектор прямой, образованной пересечением
+                % плоскостей
+                dir_vec = [current_sec_plane(2) * ortogonal_plane(3) - current_sec_plane(3) * ortogonal_plane(2), ...
+                           current_sec_plane(3) * ortogonal_plane(1) - current_sec_plane(1) * ortogonal_plane(3), ...
+                           current_sec_plane(1) * ortogonal_plane(2) - current_sec_plane(2) * ortogonal_plane(1)];
+                
+                % Искомая плоскость, в которой будем искать расстояния
+                sec_plane_ortogonal = [dir_vec(1), dir_vec(2), dir_vec(3), ...
+                    -(dir_vec(1) * p1(1)) - (dir_vec(2) * p1(2)) - (dir_vec(3) * p1(3))];
+                
+                [points_on_ortogonal_plane, list] = mathHelper.get_bounded_points(e, x, y, z, sec_plane_ortogonal, T);
+                
+                [list, list_length] = mathHelper.unique(list);
+                list_length = list_length + 1;
+                list(list_length) = PointList();
+                list(list_length).points = p1;
+                list = mathHelper.sort_array_of_points(list, list_length);
+                
+                point_index = -1;
+                
+                orthogonal_path = zeros(list_length, 3);
+                for k = 1:list_length
+                    orthogonal_path(k, :) = list(k).points;
+                    if orthogonal_path(k, :) == p1
+                        point_index = k;
+                    end
+                end
+                
+                % Находим расстояние по поверхности до следующего прохода
+                total_dist = 0;
+                for k = point_index:list_length - 1
+                    if (total_dist + mathHelper.get_distance(orthogonal_path(k, :), orthogonal_path(k+1, :))) > distance
+                        point_index = k;
+                        break;
+                    end
+                    total_dist = total_dist + mathHelper.get_distance(orthogonal_path(k, :), orthogonal_path(k+1, :));
+                end
+                
+                % Получить направляющий вектор
+                vec = mathHelper.vec_normalize(orthogonal_path(k+1, :) - orthogonal_path(k, :));
+                % Отложить на направляющем векторе оставшееся расстояние
+                endpoint = mathHelper.point_shift_vec(orthogonal_path(k, :), vec, distance - total_dist);
+                next_slice(i, :) = endpoint;
             end
         end
         

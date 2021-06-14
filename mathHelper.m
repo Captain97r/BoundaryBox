@@ -138,6 +138,12 @@ classdef mathHelper
             N(3) = n(3) / nrmsqrt;
         end
         
+        function vec = vec_normalize(vec)
+            vec(1) = vec(1) / mathHelper.get_vec_len(vec);
+            vec(2) = vec(2) / mathHelper.get_vec_len(vec);
+            vec(3) = vec(3) / mathHelper.get_vec_len(vec);
+        end
+        
         function l = get_distance(a, b)
             l = sqrt((a(:, 1) - b(:, 1)).^2 + (a(:, 2) - b(:, 2)).^2 + (a(:, 3) - b(:, 3)).^2);
         end
@@ -216,5 +222,80 @@ classdef mathHelper
             end
         end
         
+        function [list, list_length] = unique(list)
+            list_size = size(list);
+            list_length = list_size(2);
+            ptr = 1;
+            while (ptr < list_length)
+                for i = list_length:-1:ptr + 1
+                    if (ceil(list(ptr).points * 100000) == ceil(list(i).points * 100000))
+                        list(i)= [];
+                    end
+                end
+                list_size = size(list);
+                list_length = list_size(2);
+                ptr = ptr + 1;
+            end
+        end
+        
+        function start_point = get_start_point(trajectory, list_length)
+            if (~isempty(trajectory))
+                pivot = trajectory(end, :);
+                min_dist = Inf;
+                min_ptr = -1;
+                for i = 1:list_length
+                    current_point = list(i).points;
+                    dist = mathHelper.get_distance(pivot, current_point);
+                    if (dist < min_dist)
+                        min_dist = dist;
+                        min_ptr = i;
+                    end
+                end
+                start_point = min_ptr;
+            end
+        end
+        
+        function list = sort_array_of_points(list, list_length)
+            test = zeros(list_length, 3);
+            for i = 1:list_length
+                test(i, :) = list(i).points - list(1).points;
+            end
+
+            if ~isempty(find(sum(test) ~= 0))
+                test = find(sum(test) ~= 0);
+                test = test(1);
+            end
+            min_p = inf;
+
+            index = -1;
+            % Finds min point
+            for i = 1:list_length
+                if (sum(list(i).points(test) < min_p) > 0)
+                    min_p = list(i).points(test);
+                    index = i;
+                end
+            end
+            if (index ~= -1)
+                temp = list(1);
+                list(1) = list(index);
+                list(index) = temp;
+            end
+
+            % Sorts array
+            for i = 1:list_length - 1
+                min_distance = inf;
+                index = -1;
+                for j = i+1:list_length
+                    distance = mathHelper.get_distance(list(i).points, list(j).points);
+                    if (distance < min_distance)
+                        min_distance = distance;
+                        index = j;
+                    end
+                end
+                temp = list(index);
+                list(index) = list(i + 1);
+                list(i + 1) = temp;
+            end
+        end
     end
 end
