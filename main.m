@@ -1,10 +1,10 @@
 [x, y, z, T, norm] = stlConverter.binaryToTriangles;
 trimesh(T, x, y, z);
-norm = norm * (-1);
+%norm = norm * (-1);
 hold on
 
 % Построение траектории
-[trajectory, point_list, pass_over] = BoundaryBox.find_shortest_path(T, x, y, z, norm, 0.1, 1);
+[trajectory, point_list, pass_over] = BoundaryBox.find_shortest_path(T, x, y, z, norm, 0.1, 0.1);
 
 % Подход инструмента
 [tool_trajectory, tool_point_list] = BoundaryBox.tool_feed(trajectory, point_list, pass_over, 1);
