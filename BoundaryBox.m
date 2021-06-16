@@ -386,44 +386,53 @@ classdef BoundaryBox
             shortest_path = [];
             shortest_length = inf;
             
-            %0z axis rotation
-            for i = 0:pi/18:2*pi
-                secant_plane = [cos(i) sin(i) 0 0];
-                [trajectory, point_list, pass_over] = BoundaryBox.boundary_box(T, x, y, z, norm, expand_distance, tool_step, secant_plane);
-                path_length = sum(mathHelper.get_distance(trajectory(2:end, :), trajectory(1:end-1, :)));
-                path_over_distance = inf;
-                if (length(passover) > 2)
-                    path_over_distance = mathHelper.get_distance(trajectory(pass_over(1), :), trajectory(pass_over(3), :)) / 2;
-                end
-                
-                if (path_length < shortest_length && path_over_distance < tool_step + 0.1 * tool_step)
-                    shortest_path = [];
-                    shortest_path = trajectory;
-                    shortest_length = path_length;
-                end
-            end
+            debug = 1;
             
-            %0y axis rotation
-            for i = 0:pi/18:2*pi
-                secant_plane = [cos(i) 0 sin(i) 0];
+            if (debug == 1)
+                secant_plane = [1 1 0 0];
                 [trajectory, point_list, pass_over] = BoundaryBox.boundary_box(T, x, y, z, norm, expand_distance, tool_step, secant_plane);
                 path_length = sum(mathHelper.get_distance(trajectory(2:end, :), trajectory(1:end-1, :)));
-                if (path_length < shortest_length)
-                    shortest_path = [];
-                    shortest_path = trajectory;
-                    shortest_length = path_length;
+            else
+
+                %0z axis rotation
+                for i = 0:pi/18:2*pi
+                    secant_plane = [cos(i) sin(i) 0 0];
+                    [trajectory, point_list, pass_over] = BoundaryBox.boundary_box(T, x, y, z, norm, expand_distance, tool_step, secant_plane);
+                    path_length = sum(mathHelper.get_distance(trajectory(2:end, :), trajectory(1:end-1, :)));
+                    path_over_distance = inf;
+                    if (length(passover) > 2)
+                        path_over_distance = mathHelper.get_distance(trajectory(pass_over(1), :), trajectory(pass_over(3), :)) / 2;
+                    end
+
+                    if (path_length < shortest_length && path_over_distance < tool_step + 0.1 * tool_step)
+                        shortest_path = [];
+                        shortest_path = trajectory;
+                        shortest_length = path_length;
+                    end
                 end
-            end
-            
-            %0x axis rotation
-            for i = 0:pi/18:2*pi
-                secant_plane = [0 cos(i) sin(i) 0];
-                [trajectory, point_list, pass_over] = BoundaryBox.boundary_box(T, x, y, z, norm, expand_distance, tool_step, secant_plane);
-                path_length = sum(mathHelper.get_distance(trajectory(2:end, :), trajectory(1:end-1, :)));
-                if (path_length < shortest_length)
-                    shortest_path = [];
-                    shortest_path = trajectory;
-                    shortest_length = path_length;
+
+                %0y axis rotation
+                for i = 0:pi/18:2*pi
+                    secant_plane = [cos(i) 0 sin(i) 0];
+                    [trajectory, point_list, pass_over] = BoundaryBox.boundary_box(T, x, y, z, norm, expand_distance, tool_step, secant_plane);
+                    path_length = sum(mathHelper.get_distance(trajectory(2:end, :), trajectory(1:end-1, :)));
+                    if (path_length < shortest_length)
+                        shortest_path = [];
+                        shortest_path = trajectory;
+                        shortest_length = path_length;
+                    end
+                end
+
+                %0x axis rotation
+                for i = 0:pi/18:2*pi
+                    secant_plane = [0 cos(i) sin(i) 0];
+                    [trajectory, point_list, pass_over] = BoundaryBox.boundary_box(T, x, y, z, norm, expand_distance, tool_step, secant_plane);
+                    path_length = sum(mathHelper.get_distance(trajectory(2:end, :), trajectory(1:end-1, :)));
+                    if (path_length < shortest_length)
+                        shortest_path = [];
+                        shortest_path = trajectory;
+                        shortest_length = path_length;
+                    end
                 end
             end
         end
@@ -549,7 +558,6 @@ classdef BoundaryBox
         end
         
         function [next_slice, slice_list] = find_next_slice_on_distance(T, e, x, y, z, norm, current_sec_plane, current_slice, current_slice_list, distance)
-            % TODO
             % 1. For each point find plane equation, perpendicular to current
             % secant plane and passing through its normal
             % 2. Calculate path length on surface which is equal to
@@ -625,6 +633,11 @@ classdef BoundaryBox
                     if orthogonal_path(k, :) == p1
                         point_index = k;
                     end
+                end
+                
+                if (point_index == list_length)
+                    next_slice = [];
+                    return;
                 end
                 
                 % Находим расстояние по поверхности до следующего прохода
