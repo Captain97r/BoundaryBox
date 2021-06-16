@@ -23,7 +23,7 @@ classdef BoundaryBox
         %   tool_step        - distance between actuator passes
         %   secant_plane     - array of the form [A B C D] representing coefficients  
         %                      in plane equation of the form of Ax+By+Cz+D=0 
-        function [trajectory, point_list, pass_over] = boundary_box(T, x, y, z, norm, expand_distance, tool_step, secant_plane)
+        function [trajectory, point_list, pass_over] = boundary_box(T, x, y, z, norm, expand_distance, tool_step, secant_plane, options)
         %% Declaration and definition of variables
         pass_over = [];
         point_list = [];
@@ -32,15 +32,9 @@ classdef BoundaryBox
         src = [];
         s = size(T);
         
-        % Determines the method of path finding
-        %   1: based on chain of points on edges of triangles
-        %   2: simple finds the nearest point
-        path_finding_method = 2;
-        
-        % Determines the method of slice construction
-        %   1: stock
-        %   2: equal distances between slices
-        slice_construction_method = 2;
+
+        path_finding_method = options.path_finding_method;
+        slice_construction_method = options.slice_construction_method;
         
         %% Main loop  
         % Since we don't divide surface it's redundant but 
@@ -382,22 +376,22 @@ classdef BoundaryBox
         end   
         end
         
-        function [shortest_path, point_list, pass_over] = find_shortest_path(T, x, y, z, norm, expand_distance, tool_step)
+        function [shortest_path, point_list, pass_over] = find_shortest_path(T, x, y, z, norm, expand_distance, tool_step, options)
             shortest_path = [];
             shortest_length = inf;
             
             debug = 1;
             
             if (debug == 1)
-                secant_plane = [1 1 0 0];
-                [trajectory, point_list, pass_over] = BoundaryBox.boundary_box(T, x, y, z, norm, expand_distance, tool_step, secant_plane);
+                secant_plane = [1 0 0 0];
+                [trajectory, point_list, pass_over] = BoundaryBox.boundary_box(T, x, y, z, norm, expand_distance, tool_step, secant_plane, options);
                 path_length = sum(mathHelper.get_distance(trajectory(2:end, :), trajectory(1:end-1, :)));
             else
 
                 %0z axis rotation
                 for i = 0:pi/18:2*pi
                     secant_plane = [cos(i) sin(i) 0 0];
-                    [trajectory, point_list, pass_over] = BoundaryBox.boundary_box(T, x, y, z, norm, expand_distance, tool_step, secant_plane);
+                    [trajectory, point_list, pass_over] = BoundaryBox.boundary_box(T, x, y, z, norm, expand_distance, tool_step, secant_plane, options);
                     path_length = sum(mathHelper.get_distance(trajectory(2:end, :), trajectory(1:end-1, :)));
                     path_over_distance = inf;
                     if (length(passover) > 2)
@@ -414,7 +408,7 @@ classdef BoundaryBox
                 %0y axis rotation
                 for i = 0:pi/18:2*pi
                     secant_plane = [cos(i) 0 sin(i) 0];
-                    [trajectory, point_list, pass_over] = BoundaryBox.boundary_box(T, x, y, z, norm, expand_distance, tool_step, secant_plane);
+                    [trajectory, point_list, pass_over] = BoundaryBox.boundary_box(T, x, y, z, norm, expand_distance, tool_step, secant_plane, options);
                     path_length = sum(mathHelper.get_distance(trajectory(2:end, :), trajectory(1:end-1, :)));
                     if (path_length < shortest_length)
                         shortest_path = [];
@@ -426,7 +420,7 @@ classdef BoundaryBox
                 %0x axis rotation
                 for i = 0:pi/18:2*pi
                     secant_plane = [0 cos(i) sin(i) 0];
-                    [trajectory, point_list, pass_over] = BoundaryBox.boundary_box(T, x, y, z, norm, expand_distance, tool_step, secant_plane);
+                    [trajectory, point_list, pass_over] = BoundaryBox.boundary_box(T, x, y, z, norm, expand_distance, tool_step, secant_plane, options);
                     path_length = sum(mathHelper.get_distance(trajectory(2:end, :), trajectory(1:end-1, :)));
                     if (path_length < shortest_length)
                         shortest_path = [];
