@@ -139,9 +139,10 @@ classdef mathHelper
         end
         
         function vec = vec_normalize(vec)
-            vec(1) = vec(1) / mathHelper.get_vec_len(vec);
-            vec(2) = vec(2) / mathHelper.get_vec_len(vec);
-            vec(3) = vec(3) / mathHelper.get_vec_len(vec);
+            len = mathHelper.get_vec_len(vec);
+            vec(1) = vec(1) / len;
+            vec(2) = vec(2) / len;
+            vec(3) = vec(3) / len;
         end
         
         function l = get_distance(a, b)
