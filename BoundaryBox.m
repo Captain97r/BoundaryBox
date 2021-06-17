@@ -304,9 +304,34 @@ classdef BoundaryBox
                     plane_equation(4) = plane_equation(4) - tool_step;
                     
                     % Handling first pass missing
-
+                    
                 end
                 
+                % Creates additional points in resulting trajectory to 
+                % maintain a constant step between them
+                [step_pass, point_list_step] = BoundaryBox.get_trajectory_with_constant_step(current_pass, list, T, x, y, z);
+
+                % Moves points along normals to define the path of the
+                % actuator 
+                [exp_pass, point_list_exp] = BoundaryBox.expand_trajectory(step_pass, point_list_step, norm, expand_distance);
+
+                % Smoothes normals to fix sudden moves of the actuator
+                [filtered_norm] = BoundaryBox.norm_filter(exp_pass, step_pass);
+
+                % Moves points along smoothed normals to define the path of 
+                % the actuator
+                [filtered_pass] = BoundaryBox.expand_trajectory_by_norm(step_pass, filtered_norm, expand_distance);
+                
+                src = [src; step_pass];
+                trajectory = [trajectory; filtered_pass];
+                    
+                for i = 1:length(point_list_exp)
+                    point_list = [point_list, point_list_exp(i)];
+                end
+
+                if (~isempty(filtered_pass))
+                    pass_over = [pass_over, length(trajectory)];
+                end
                 
                 [next_slice, slice_list] = BoundaryBox.find_next_slice_on_distance(T, e, x, y, z, norm, plane_equation, current_pass, list, tool_step);
                 slice_size = size(next_slice);
@@ -642,6 +667,11 @@ classdef BoundaryBox
                         break;
                     end
                     total_dist = total_dist + mathHelper.get_distance(orthogonal_path(k, :), orthogonal_path(k+1, :));
+                end
+                
+                if (k == list_length - 1 && total_dist < distance)
+                    next_slice = [];
+                    return;
                 end
                 
                 % Получить направляющий вектор
