@@ -207,7 +207,7 @@ classdef mathHelper
             CP = sqrt( (P(1)-C(1))*(P(1)-C(1)) + (P(2)-C(2))*(P(2)-C(2)) + (P(3)-C(3))*(P(3)-C(3)) );
             diff = (mathHelper.triangle_square(AP,BP,AB) + mathHelper.triangle_square(AP,CP,CA)+ ... 
                 mathHelper.triangle_square(BP,CP,BC)) - mathHelper.triangle_square(AB,BC,CA);
-            if (abs(diff) < 1e-10) 
+            if (abs(diff) < 1e-7) 
                 inside = 1;
             end
             
