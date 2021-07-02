@@ -12,7 +12,6 @@ classdef stlConverter
                 return;
             end
             
-            tic
             fileID = fopen(strcat(path, filename));
             binary = fread(fileID);
 
@@ -61,7 +60,6 @@ classdef stlConverter
                 end
             end
             fclose(fileID);
-            toc
         end
         
         function [x, y, z, T] = asciiToTriangles(vert)
@@ -99,7 +97,6 @@ classdef stlConverter
             x(ind:end) = [];
             y(ind:end) = [];
             z(ind:end) = [];
-            toc
         end
         
         function [x, y, z, T, norm] = binaryToTriangles()

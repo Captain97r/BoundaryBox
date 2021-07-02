@@ -73,7 +73,7 @@ classdef BoundaryBox
             min_val = min_val(secant_plane(1:3) ~= 0);
             max_val = max_val(secant_plane(1:3) ~= 0);
             center = (max(max_val) + min(min_val)) / 2;
-            left_bound = center - (max(max_val) - min(min_val)) + ((max(max_val) - min(min_val)) * 0.01);
+            left_bound = min(min_val) + 10;%center - (max(max_val) - min(min_val)) + ((max(max_val) - min(min_val)) * 0.01);
             right_bound = center + (max(max_val) - min(min_val));
             
             first_slice = 1;
@@ -163,32 +163,38 @@ classdef BoundaryBox
 
                     % Smoothes normals to fix sudden moves of the actuator
                     [filtered_norm] = BoundaryBox.norm_filter(exp_pass, step_pass);
+                    
+                    %filtered_norm = exp_pass - step_pass;
 
                     % Moves points along smoothed normals to define the path of 
                     % the actuator
                     [filtered_pass] = BoundaryBox.expand_trajectory_by_norm(step_pass, filtered_norm, expand_distance); 
 
+                    
 
                     % Drawing normals routine
-    %                 plot3(step_pass(1:end, 1), step_pass(1:end, 2), step_pass(1:end, 3));
-    %                 hold on
-    %                 plot3(filtered_pass(1:end, 1), filtered_pass(1:end, 2), filtered_pass(1:end, 3));
-    %                 hold on
-    %                 prev_angle = -1000;
-    %                 prev_norm = filtered_norm(1, :);
-    %                 for i=1:length(filtered_pass)
-    %                      angle = mathHelper.get_angle(prev_norm, filtered_norm(i, :));
-    %                      axis equal
-    %                     if abs(angle - prev_angle) < 10
-    %                         continue;
-    %                     end
-    %                     
-    %                     segment = [step_pass(i, :); mathHelper.point_shift_vec(step_pass(i, :), filtered_norm(i, :), 5)]; 
-    %                     plot3(segment(1:end, 1), segment(1:end, 2), segment(1:end, 3));
-    %                     hold on
-    %                     prev_angle = angle;
-    %                     prev_norm = filtered_norm(i, :);
-    %                 end
+                    if (length(step_pass) > 0)
+                        plot3(step_pass(1:end, 1), step_pass(1:end, 2), step_pass(1:end, 3), 'r');
+                        hold on
+                        plot3(filtered_pass(1:end, 1), filtered_pass(1:end, 2), filtered_pass(1:end, 3), 'b');
+                        hold on
+                        prev_angle = -1000;
+                        prev_norm = filtered_norm(1, :);
+                        for i=2:length(filtered_pass)
+                             angle = mathHelper.get_angle(prev_norm, filtered_norm(i, :));
+                             axis equal
+                            if abs(angle) > 5
+                                prev_angle = angle;
+                                prev_norm = filtered_norm(i, :);
+                            else
+                                continue
+                            end
+
+                            segment = [step_pass(i, :); mathHelper.point_shift_vec(step_pass(i, :), filtered_norm(i, :), 3)]; 
+                            plot3(segment(1:end, 1), segment(1:end, 2), segment(1:end, 3), 'black');
+                            hold on
+                        end
+                    end
 
 
                     % Reverting every second pass
@@ -309,20 +315,20 @@ classdef BoundaryBox
                 
                 % Creates additional points in resulting trajectory to 
                 % maintain a constant step between them
-                [step_pass, point_list_step] = BoundaryBox.get_trajectory_with_constant_step(current_pass, list, T, x, y, z);
+                [step_pass_init, point_list_step_init] = BoundaryBox.get_trajectory_with_constant_step(current_pass, list, T, x, y, z);
 
                 % Moves points along normals to define the path of the
                 % actuator 
-                [exp_pass, point_list_exp] = BoundaryBox.expand_trajectory(step_pass, point_list_step, norm, expand_distance);
+                [exp_pass, point_list_exp] = BoundaryBox.expand_trajectory(step_pass_init, point_list_step_init, norm, expand_distance);
 
                 % Smoothes normals to fix sudden moves of the actuator
-                [filtered_norm] = BoundaryBox.norm_filter(exp_pass, step_pass);
+                [filtered_norm] = BoundaryBox.norm_filter(exp_pass, step_pass_init);
 
                 % Moves points along smoothed normals to define the path of 
                 % the actuator
-                [filtered_pass] = BoundaryBox.expand_trajectory_by_norm(step_pass, filtered_norm, expand_distance);
+                [filtered_pass] = BoundaryBox.expand_trajectory_by_norm(step_pass_init, filtered_norm, expand_distance);
                 
-                src = [src; step_pass];
+                src = [src; step_pass_init];
                 trajectory = [trajectory; filtered_pass];
                     
                 for i = 1:length(point_list_exp)
@@ -333,16 +339,19 @@ classdef BoundaryBox
                     pass_over = [pass_over, length(trajectory)];
                 end
                 
-                [next_slice, slice_list] = BoundaryBox.find_next_slice_on_distance(T, e, x, y, z, norm, plane_equation, current_pass, list, tool_step);
+                orto_plane_equation = [0 1 0 0];
+                
+                [next_slice, slice_list] = BoundaryBox.find_next_slice_on_distance(T, e, x, y, z, norm, plane_equation, orto_plane_equation, step_pass_init, point_list_step_init, tool_step);
                 slice_size = size(next_slice);
                 slice_length = slice_size(1);
                 
+                count = 1;
                 
                 while (~isempty(next_slice))
                     
                     current_pass = [];
                     
-                    for i = 1:list_length
+                    for i = 1:slice_length
                         current_pass = [current_pass; slice_list(i).points];
                     end
 
@@ -387,10 +396,11 @@ classdef BoundaryBox
                     
                     slice_list = [];
 
-                    % Нужно смещение добавить!
+                    count = count + 1;
 
-                    [next_slice, slice_list] = BoundaryBox.find_next_slice_on_distance(T, e, x, y, z, norm, plane_equation, current_pass, list, tool_step);
-            
+                    [next_slice, slice_list] = BoundaryBox.find_next_slice_on_distance(T, e, x, y, z, norm, plane_equation, orto_plane_equation, step_pass_init, point_list_step_init, tool_step * count);
+                    slice_size = size(next_slice);
+                    slice_length = slice_size(1);
                 end
                 
             end
@@ -408,9 +418,10 @@ classdef BoundaryBox
             debug = 1;
             
             if (debug == 1)
-                secant_plane = [1 0 0 0];
+                secant_plane = [0 1 0 0];
                 [trajectory, point_list, pass_over] = BoundaryBox.boundary_box(T, x, y, z, norm, expand_distance, tool_step, secant_plane, options);
                 path_length = sum(mathHelper.get_distance(trajectory(2:end, :), trajectory(1:end-1, :)));
+                shortest_path = trajectory;
             else
 
                 %0z axis rotation
@@ -576,7 +587,7 @@ classdef BoundaryBox
             end
         end
         
-        function [next_slice, slice_list] = find_next_slice_on_distance(T, e, x, y, z, norm, current_sec_plane, current_slice, current_slice_list, distance)
+        function [next_slice, slice_list] = find_next_slice_on_distance(T, e, x, y, z, norm, current_sec_plane, orto_sec_plane, current_slice, current_slice_list, distance)
             % 1. For each point find plane equation, perpendicular to current
             % secant plane and passing through its normal
             % 2. Calculate path length on surface which is equal to
@@ -598,8 +609,12 @@ classdef BoundaryBox
                 % Нахождение нормали текущего треугольника
                 if (length(current_slice_list(i).triangles) == 1)
                     current_norm = norm(current_slice_list(i).triangles(1), :);
+                elseif (length(current_slice_list(i).triangles) == 2)
+                    current_norm = (norm(current_slice_list(i).triangles(1), :));% + norm(current_slice_list(i).triangles(2), :)) ./ 2;
+                elseif (~isempty(current_slice_list(i).inside_triangle))
+                    current_norm = norm(current_slice_list(i).inside_triangle, :);
                 else
-                    current_norm = (norm(current_slice_list(i).triangles(1), :) + norm(current_slice_list(i).triangles(2), :)) ./ 2;
+                    continue;
                 end
                 %p2 = mathHelper.point_shift_vec(p1, current_norm, 1);
                 
@@ -614,6 +629,8 @@ classdef BoundaryBox
                 dir_vec = [current_sec_plane(2) * ortogonal_plane(3) - current_sec_plane(3) * ortogonal_plane(2), ...
                            current_sec_plane(3) * ortogonal_plane(1) - current_sec_plane(1) * ortogonal_plane(3), ...
                            current_sec_plane(1) * ortogonal_plane(2) - current_sec_plane(2) * ortogonal_plane(1)];
+
+                %dir_vec = [0 0 1];
                 
                 % Искомая плоскость, в которой будем искать расстояния
                 sec_plane_ortogonal = [dir_vec(1), dir_vec(2), dir_vec(3), ...
@@ -644,6 +661,8 @@ classdef BoundaryBox
                 list(list_length).points = p1;
                 list = mathHelper.sort_array_of_points(list, list_length);
                 
+                slice_list(i) = PointList();
+                
                 point_index = -1;
                 
                 orthogonal_path = zeros(list_length, 3);
@@ -655,8 +674,7 @@ classdef BoundaryBox
                 end
                 
                 if (point_index == list_length)
-                    next_slice = [];
-                    return;
+                    continue;
                 end
                 
                 % Находим расстояние по поверхности до следующего прохода
@@ -670,8 +688,7 @@ classdef BoundaryBox
                 end
                 
                 if (k == list_length - 1 && total_dist < distance)
-                    next_slice = [];
-                    return;
+                    continue;
                 end
                 
                 % Получить направляющий вектор
@@ -679,7 +696,7 @@ classdef BoundaryBox
                 % Отложить на направляющем векторе оставшееся расстояние
                 endpoint = mathHelper.point_shift_vec(orthogonal_path(point_index, :), vec, distance - total_dist);
                 next_slice(i, :) = endpoint;
-                slice_list(i) = PointList();
+                
                 slice_list(i).points = endpoint;
                 for t = 1:length(T)
                     A = [x(T(t, 1)), y(T(t, 1)), z(T(t, 1))];
@@ -687,12 +704,28 @@ classdef BoundaryBox
                     C = [x(T(t, 3)), y(T(t, 3)), z(T(t, 3))];
                     if (mathHelper.is_point_inside_triangle(endpoint, A, B, C))
                         slice_list(i).inside_triangle = t;
+                        break;
                     end
+                end
+            end
+            
+            i = 1;
+            while i <= current_slice_length
+                if (sum(next_slice(i, :) == [0, 0, 0]) == 3)
+                    next_slice(i, :) = [];
+                    slice_list(i) = [];
+                    current_slice_length = current_slice_length - 1;
+                else
+                    i = i + 1;
                 end
             end
         end
         
         function [trajectory, point_list] = expand_trajectory(trajectory, point_list, norm, dist)
+            
+            if (dist == 0)
+                return;
+            end
             
             trajectory = [];
             % Get expanded list of points
@@ -863,6 +896,11 @@ classdef BoundaryBox
         
         function [result] = norm_filter(trajectory, source_trajectory)
             
+            if (sum(trajectory == source_trajectory) == length(trajectory))
+                result = ones(size(trajectory));
+                return;
+            end
+            
             result = trajectory(1:end, :) - source_trajectory(1:end, :);
             trajectory_size = size(trajectory);
             for i = 1:trajectory_size(1)
@@ -915,8 +953,11 @@ classdef BoundaryBox
 %                         sizes(i) = window_size;
 %                     end
 
-                    p1 = mathHelper.point_shift_vec(source_trajectory(i, :), result(i, :), 5);
-                    p2 = mathHelper.point_shift_vec(source_trajectory(i+1, :), result(i+1, :), 5);
+                    % Последний аргумент - это то, на сколько будем
+                    % смещать!
+
+                    p1 = mathHelper.point_shift_vec(source_trajectory(i, :), result(i, :), 1);
+                    p2 = mathHelper.point_shift_vec(source_trajectory(i+1, :), result(i+1, :), 1);
 
                     if mathHelper.get_distance(p2, p1) > 1
                         is_ended = false;
@@ -954,7 +995,7 @@ classdef BoundaryBox
 %             end
         end
         
-        function [trajectory, point_list] = tool_feed(trajectory, point_list, pass_over, feed)
+        function [trajectory, point_list, pass_over] = tool_feed(trajectory, point_list, pass_over, feed)
             
             k = 5;
             for i = 1:length(pass_over)-1
@@ -1037,6 +1078,58 @@ classdef BoundaryBox
                 point_list = [point_list point_list_object];
             end
             
+            pass_over(1:end) = pass_over(1:end) + k*2;
+        end
+        
+        function [trajectory, point_list] = additional_pass(trajectory, point_list, pass_over, feed)
+            
+            dim = 1;
+            last_pass = trajectory(pass_over(end-1)+1:end, :);
+            pre_last_pass = trajectory(pass_over(end-2)+1:pass_over(end-1)+1, :);
+            
+            pre_last_pass_size = size(pre_last_pass);
+            pre_last_pass_len = pre_last_pass_size(1);
+            last_pass_size = size(last_pass);
+            last_pass_len = last_pass_size(1);
+            offset = last_pass(1, dim) - pre_last_pass(1, dim);
+            
+            tr_len = length(trajectory);
+            
+            for i = 1:last_pass_len
+                if (dim == 2)
+                    trajectory(tr_len+i, :) = [last_pass(end-i+1, 1), last_pass(end-i+1, 2) + offset, last_pass(end-i+1, 3)];
+                elseif (dim == 1)
+                    trajectory(tr_len+i, :) = [last_pass(end-i+1, 1) + offset, last_pass(end-i+1, 2), last_pass(end-i+1, 3)];
+                elseif (dim == 3)
+                    trajectory(tr_len+i, :) = [last_pass(end-i+1, 1), last_pass(end-i+1, 2), last_pass(end-i+1, 3) + offset];
+                end
+            end
+            
+            
+            trajectory = [zeros(pass_over(2) - pass_over(1), 3); trajectory];
+            
+            for i = 1:pass_over(1)
+                if (dim == 2)
+                    trajectory(i, :) = [trajectory(pass_over(2)-i+1, 1), trajectory(pass_over(2)-i+1, 2) - offset, trajectory(pass_over(2)-i+1, 3)];
+                elseif (dim == 1)
+                    trajectory(i, :) = [trajectory(pass_over(2)-i+1, 1) - offset, trajectory(pass_over(2)-i+1, 2), trajectory(pass_over(2)-i+1, 3)];
+                elseif (dim == 3)
+                    trajectory(i, :) = [trajectory(pass_over(2)-i+1, 1), trajectory(pass_over(2)-i+1, 2), trajectory(pass_over(2)-i+1, 3) - offset];
+                end
+            end
+            
+            tr_len = length(trajectory);
+            
+            i = 1;
+            while i < tr_len
+                if sum(trajectory(i, :) == [0 0 0]) == 3
+                    trajectory(i, :) = [];
+                    tr_len = length(trajectory);
+                else
+                    i = i + 1;
+                end
+            end
+            
         end
         
         function [trajectory_step, point_list_step] = get_trajectory_with_constant_step(trajectory, point_list, T, x, y, z)
@@ -1116,7 +1209,7 @@ classdef BoundaryBox
                             segment_list = [segment_list new_p_object];
                         
                         catch
-                            warning("PointList object is empty!");
+                            warning("PointList object is empty! " + i);
                         end
                         
                     end
